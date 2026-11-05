@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title> NLE2 Outcome Predictor </title>
+<style>
+  :root {
+    --bg:      #0f1117;
+    --surface: #1a1d27;
+    --border:  #2e3347;
+    --accent:  #3b82f6;
+    --accent2: #60a5fa;
+    --text:    #e2e8f0;
+    --muted:   #8892a4;
+    --pass:    #10b981;
+    --fail:    #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  .header { text-align: center; margin-bottom: 28px; }
+  .header h1 {
+    font-size: 1.7rem; font-weight: 700;
+    color: var(--accent2); letter-spacing: 0.04em;
+  }
+  .header p  { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+  .badge {
+    display: inline-block;
+    background: #3b82f620; color: var(--accent2);
+    border: 1px solid #3b82f640; border-radius: 999px;
+    font-size: 0.72rem; padding: 3px 10px;
+    margin-top: 8px; letter-spacing: 0.05em;
+  }
+  .layout {
+    display: flex; gap: 20px;
+    max-width: 960px; margin: 0 auto; flex-wrap: wrap;
+  }
+  .input-panel  { flex: 1 1 340px; display: flex; flex-direction: column; gap: 14px; }
+  .result-panel { flex: 1 1 340px; display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+  }
+  .card-title {
+    font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .field label { font-size: 0.82rem; color: var(--muted); }
+  .field input, .field select {
+    background: #0f1117; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-size: 0.92rem; padding: 8px 12px;
+    outline: none; transition: border 0.2s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select option { background: #1a1d27; }
+  .field .hint { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .btn {
+    width: 100%; padding: 11px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; transition: background 0.2s; margin-top: 4px;
+  }
+  .btn:hover { background: var(--accent2); }
+  .prob-ring-wrap {
+    display: flex; flex-direction: column;
+    align-items: center; min-height: 200px; justify-content: center;
+  }
+  .placeholder { text-align: center; color: var(--muted); font-size: 0.88rem; }
+  .placeholder svg { margin-bottom: 10px; opacity: 0.4; }
+  .ring-container { position: relative; width: 160px; height: 160px; margin-bottom: 14px; }
+  .ring-svg { width: 160px; height: 160px; transform: rotate(-90deg); }
+  .ring-bg   { fill: none; stroke: var(--border); stroke-width: 14; }
+  .ring-fill {
+    fill: none; stroke-width: 14; stroke-linecap: round;
+    stroke-dasharray: 439.8; stroke-dashoffset: 439.8;
+    transition: stroke-dashoffset 0.9s ease, stroke 0.4s;
+  }
+  .ring-center {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); text-align: center;
+  }
+  .ring-pct   { font-size: 1.7rem; font-weight: 700; }
+  .ring-label { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+  .outcome-badge {
+    font-size: 0.8rem; font-weight: 700;
+    letter-spacing: 0.08em; padding: 6px 18px;
+    border-radius: 999px; opacity: 0; transition: opacity 0.4s;
+  }
+  .risk-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .risk-label { font-size: 0.82rem; color: var(--muted); }
+  .risk-val   { font-size: 0.88rem; font-weight: 600; }
+  .risk-bar-track { background: var(--border); border-radius: 999px; height: 7px; overflow: hidden; }
+  .risk-bar-fill  { height: 100%; border-radius: 999px; width: 0%; transition: width 0.9s ease; }
+  .contrib-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .contrib-name  { font-size: 0.75rem; color: var(--muted); width: 140px; flex-shrink: 0; }
+  .contrib-track { flex: 1; background: var(--border); border-radius: 999px; height: 6px; overflow: hidden; }
+  .contrib-bar   { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+  .contrib-val   { font-size: 0.75rem; width: 42px; text-align: right; flex-shrink: 0; }
+  .thr-note { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
+  .footer {
+    text-align: center; color: var(--muted);
+    font-size: 0.75rem; margin-top: 32px; line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>NLE2</h1>
+  <p> National Licensing Examination Step 2 Outcome Predictor &mdash; NLE2 Model</p>
+  <span class="badge">Faculty of Medicine &middot; Burapha University</span>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT: Input Panel -->
+  <div class="input-panel">
+    <div class="card">
+      <div class="card-title">Student Profile</div>
+
+      <div class="field">
+        <label>Sex</label>
+        <select id="sex">
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+          
+        </select>
+      </div>
+
+      <div class="field">
+        <label>School Region</label>
+        <select id="school_region">
+          <option value="1">1 — Eastern Region</option>
+          <option value="2">2 — Non-Eastern Region</option>
+          
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Age at Admission (years)</label>
+        <input type="number" id="age" value="23" min="20" max="35" step="1"/>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Academic Record</div>
+
+      <div class="field">
+        <label>Preclinical GPA</label>
+        <input type="number" id="preclinic_gpax" value="3.00" min="0" max="4" step="0.01"/>
+        <span class="hint">Years 1–3 cumulative GPA</span>
+      </div>
+
+      <div class="field">
+        <label>Clinical GPA</label>
+        <input type="number" id="clinic_gpax" value="3.00" min="0" max="4" step="0.01"/>
+        <span class="hint">Years 4–6 cumulative GPA</span>
+      </div>
+    </div>
+
+    <button class="btn" onclick="predict()">Predict NL Outcome &#8594;</button>
+  </div>
+
+  <!-- RIGHT: Result Panel -->
+  <div class="result-panel">
+
+    <div class="card prob-ring-wrap">
+      <div id="placeholder" class="placeholder">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4l3 3"/>
+        </svg>
+        <p>Fill in the student&apos;s data<br>and press Predict to see results.</p>
+      </div>
+      <div id="result-content"
+           style="display:none;flex-direction:column;align-items:center;width:100%">
+        <div class="ring-container">
+          <svg class="ring-svg" viewBox="0 0 160 160">
+            <circle class="ring-bg"   cx="80" cy="80" r="70"/>
+            <circle class="ring-fill" cx="80" cy="80" r="70" id="ring-fill"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-pct"   id="ring-pct">0%</div>
+            <div class="ring-label">PASS probability</div>
+          </div>
+        </div>
+        <div class="outcome-badge" id="outcome-badge"></div>
+        <div class="thr-note" id="thr-note"></div>
+      </div>
+    </div>
+
+    <div class="card" id="risk-card" style="display:none">
+      <div class="card-title">Risk Assessment</div>
+      <div class="risk-row">
+        <span class="risk-label">Fail Risk Level</span>
+        <span class="risk-val" id="risk-text">—</span>
+      </div>
+      <div class="risk-bar-track">
+        <div class="risk-bar-fill" id="risk-bar"></div>
+      </div>
+    </div>
+
+    <div class="card" id="contrib-card" style="display:none">
+      <div class="card-title">Log-Odds Contributions</div>
+      <div id="contrib-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  For academic and advisory purposes only &mdash; not a substitute for clinical judgment.<br>
+  Model: NLE2 &middot; Multivariable Logistic Regression &middot;
+  AUC = 0.851 &middot; Threshold = 0.7997247787342279 &middot;
+  Faculty of Medicine, Burapha University
+</div>
+
+<script>
+const INTERCEPT  = -10.925955;
+const THRESHOLD  = 0.8;
+const CONT_COEFS = {"age": -0.194939, "preclinic_gpax": 2.37739, "clinic_gpax": 2.380262};
+const CAT_COEFS  = {"school_region": {"reference": "1", "categories": {"2": -0.516891}}, "sex": {"reference": "female", "categories": {"male": 1.154943}}};
+const CIRC = 2 * Math.PI * 70;
+
+const CONTRIB_LABELS = {
+  age:            'Age',
+  preclinic_gpax: 'Preclinical GPA',
+  clinic_gpax:    'Clinical GPA',
+  sex:            'Sex',
+  school_region:  'School Region'
+};
+
+function predict() {
+  const inputs = {
+    age:            parseFloat(document.getElementById('age').value)           || 0,
+    preclinic_gpax: parseFloat(document.getElementById('preclinic_gpax').value)|| 0,
+    clinic_gpax:    parseFloat(document.getElementById('clinic_gpax').value)   || 0,
+    sex:            document.getElementById('sex').value,
+    school_region:  document.getElementById('school_region').value,
+  };
+
+  let logOdds = INTERCEPT;
+  const contribs = {};
+
+  for (const [v, coef] of Object.entries(CONT_COEFS)) {
+    const c = coef * inputs[v];
+    logOdds += c;
+    contribs[v] = c;
+  }
+  for (const [v, info] of Object.entries(CAT_COEFS)) {
+    const sel = inputs[v];
+    const c = (sel !== info.reference && info.categories[sel] !== undefined)
+              ? info.categories[sel] : 0;
+    logOdds += c;
+    contribs[v] = c;
+  }
+
+  const prob = 1 / (1 + Math.exp(-logOdds));
+  const pct  = Math.round(prob * 100);
+  const pass = prob >= THRESHOLD;
+  const color = pass ? '#10b981' : '#ef4444';
+
+  // Ring
+  document.getElementById('placeholder').style.display = 'none';
+  const content = document.getElementById('result-content');
+  content.style.display = 'flex';
+
+  const fill = document.getElementById('ring-fill');
+  fill.style.strokeDashoffset = CIRC * (1 - prob);
+  fill.style.stroke = color;
+
+  const pctEl = document.getElementById('ring-pct');
+  pctEl.style.color = color;
+  let start = null;
+  (function animCount(ts) {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / 900, 1);
+    pctEl.textContent = Math.round(p * pct) + '%';
+    if (p < 1) requestAnimationFrame(animCount);
+  })(performance.now());
+
+  const badge = document.getElementById('outcome-badge');
+  badge.textContent = pass ? 'PREDICTED: PASS' : 'PREDICTED: FAIL';
+  badge.style.cssText = `opacity:1;background:${pass?'#10b98118':'#ef444418'};
+    color:${color};border:1px solid ${pass?'#10b98140':'#ef444440'};
+    font-size:0.8rem;font-weight:700;letter-spacing:0.08em;
+    padding:6px 18px;border-radius:999px;`;
+
+  document.getElementById('thr-note').textContent =
+    `Decision threshold: ${(THRESHOLD*100).toFixed(0)}%  (sensitivity-optimised)`;
+
+  // Risk bar
+  document.getElementById('risk-card').style.display = 'block';
+  const failPct = 100 - pct;
+  let riskLabel, riskColor;
+  if      (prob >= 0.85) { riskLabel = 'Low Risk';       riskColor = '#10b981'; }
+  else if (prob >= 0.70) { riskLabel = 'Moderate Risk';  riskColor = '#f59e0b'; }
+  else if (prob >= 0.50) { riskLabel = 'High Risk';      riskColor = '#f97316'; }
+  else                   { riskLabel = 'Very High Risk';  riskColor = '#ef4444'; }
+  document.getElementById('risk-text').textContent = riskLabel;
+  document.getElementById('risk-text').style.color  = riskColor;
+  const bar = document.getElementById('risk-bar');
+  bar.style.width      = failPct + '%';
+  bar.style.background = riskColor;
+
+  // Contributions
+  document.getElementById('contrib-card').style.display = 'block';
+  const list = document.getElementById('contrib-list');
+  list.innerHTML = '';
+  const maxC = Math.max(...Object.values(contribs).map(Math.abs), 0.001);
+  for (const [v, val] of Object.entries(contribs)) {
+    const barPct   = (Math.abs(val) / maxC * 100).toFixed(1);
+    const barColor = val >= 0 ? '#3b82f6' : '#ef4444';
+    const label    = CONTRIB_LABELS[v] || v;
+    list.innerHTML += `
+      <div class="contrib-row">
+        <span class="contrib-name">${label}</span>
+        <div class="contrib-track">
+          <div class="contrib-bar" style="width:${barPct}%;background:${barColor}"></div>
+        </div>
+        <span class="contrib-val" style="color:${barColor}">${val>=0?'+':''}${val.toFixed(3)}</span>
+      </div>`;
+  }
+}
+</script>
+</body>
+</html>
